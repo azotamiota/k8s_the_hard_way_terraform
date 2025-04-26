@@ -30,6 +30,7 @@ resource "aws_instance" "cks_ec2" {
   subnet_id              = aws_default_subnet.default_az1.id
   key_name               = "cks_ec2_key"
   vpc_security_group_ids = [aws_security_group.allow_all_traffic.id]
+  user_data              = file("userdata.sh")
 
   cpu_options {
     core_count       = 1
