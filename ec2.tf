@@ -1,6 +1,6 @@
 resource "aws_default_vpc" "default" {
   tags = {
-    Name = "Default VPC from terraform" # 172.31.0.0/16
+    Name = "Default VPC from terraform"
   }
 }
 
@@ -8,11 +8,11 @@ resource "aws_default_subnet" "default_az1" {
   availability_zone = "us-east-1a"
 
   tags = {
-    Name = "Default subnet for us-east-1a from terraform" # 172.31.16.0/20
+    Name = "Default subnet for us-east-1a from terraform"
   }
 }
 
-
+# Dynamic AMI
 # data "aws_ami" "amzn-linux-2023-ami" {
 #   most_recent = true
 #   owners      = ["amazon"]
@@ -23,6 +23,7 @@ resource "aws_default_subnet" "default_az1" {
 #   }
 # }
 
+# Static AMI used for ETCD server practice
 resource "aws_instance" "cks_ec2" {
   # ami                    = data.aws_ami.amzn-linux-2023-ami.id
   ami                    = "ami-084568db4383264d4"
@@ -59,20 +60,12 @@ output "instance_public_ip" {
 }
 
 resource "aws_security_group" "allow_all_traffic" {
-  name        = "allow_all_traffic_cks_ec2"
+  name        = "ip_restricted_allow_all_traffic_cks_ec2"
   description = "Allow inbound traffic only from my IP"
   vpc_id      = aws_default_vpc.default.id
 
-  # ingress {
-  #   description = "SSH from your IP"
-  #   from_port   = 22
-  #   to_port     = 22
-  #   protocol    = "tcp"
-  #   cidr_blocks = [var.home_ip]
-  # }
-
   ingress {
-    description = "All traffic from my IP only"
+    description = "All traffic from my home IP only"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
@@ -87,6 +80,6 @@ resource "aws_security_group" "allow_all_traffic" {
   }
 
   tags = {
-    Name = "allow_all_traffic_cks_ec2"
+    Name = "ip_restricted_allow_all_traffic_cks_ec2"
   }
 }
