@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# ETCD server & certificates creation
+# etcd server config
 apt-get update && apt-get -y install tcpdump net-tools
 mkdir /root/binaries
 cd /root/binaries
@@ -9,15 +9,14 @@ tar -xzvf etcd-v3.5.18-linux-amd64.tar.gz
 cd /root/binaries/etcd-v3.5.18-linux-amd64/
 cp etcd etcdctl /usr/local/bin/
 
+# etcd certificates creation
 mkdir /root/certificates
 cd /root/certificates
 
 openssl genrsa -out ca.key 2048
 openssl req -new -key ca.key -subj "/CN=KUBERNETES-CA" -out ca.csr
 openssl x509 -req -in ca.csr -signkey ca.key -out ca.crt -days 1000
-
 openssl genrsa -out etcd.key 2048
-IP=$(ifconfig ens5 | awk '/inet / {print $2}')
 
 cat > etcd.cnf <<EOF
 [req]
@@ -40,7 +39,7 @@ openssl genrsa -out dudung.key 2048
 openssl req -new -key dudung.key -subj "/CN=dudung" -out dudung.csr
 openssl x509 -req -in dudung.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out dudung.crt -extensions v3_req  -days 2000
 
-# create systemd & start etcd running
+# integrate systemd with etcd & start running
 mkdir /var/lib/etcd
 chmod 700 /var/lib/etcd
 
