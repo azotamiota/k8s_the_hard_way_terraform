@@ -1,3 +1,13 @@
-# AWS EC2 instance
+# Kubernetes the Hard Way
 
-A simple AWS EC2 instance with user data for practising purposes
+Creating a Kubernetes cluster on an AWS EC2 virtual machine from scratch by using IaC approach.
+
+## Steps done
+
+- Created a basic EC2 instance configuration by Terraform.
+- Added user data to
+  - create an etcd server & certificates
+  - create systemd file for etcd
+  - create a kube-apiserver & certificates
+  - generate service account certificates
+  - integrate systemd with kube-apiserver
