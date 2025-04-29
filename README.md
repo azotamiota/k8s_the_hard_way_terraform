@@ -1,13 +1,17 @@
-# Kubernetes the Hard Way
+# Kubernetes the Hard Way  
+**Building a Kubernetes cluster from scratch on AWS EC2 using Infrastructure-as-Code (Terraform)**
+*Please Note: This project is still in progress* 
 
-Creating a Kubernetes cluster on an AWS EC2 virtual machine from scratch by using IaC approach.
+## Project Overview  
+This project demonstrates hands-on Kubernetes architecture knowledge by manually configuring core components (etcd, kube-apiserver, certificates) on an EC2 instance via Terraform and systemd.  
 
-## Steps done
+## Key Steps  
+- Provisioned an EC2 instance using Terraform with custom user data.  
+- Manually configured in user data:  
+  - etcd server with TLS certificates  
+  - systemd unit files for etcd and kube-apiserver  
+  - Kubernetes API server with service account certificates  
+- Automated initial setup while preserving the "hard way" learning approach.  
 
-- Created a basic EC2 instance configuration by Terraform.
-- Added user data to
-  - create an etcd server & certificates
-  - create systemd file for etcd
-  - create a kube-apiserver & certificates
-  - generate service account certificates
-  - integrate systemd with kube-apiserver
+## Technologies Used  
+Terraform, AWS EC2, Kubernetes, systemd, TLS certificate management  
