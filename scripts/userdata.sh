@@ -76,7 +76,7 @@ tar -xzvf kubernetes-server-linux-amd64.tar.gz
 cd /root/binaries/kubernetes/server/bin/
 cp kube-apiserver kubectl /usr/local/bin/
 
-# api server certificate creation
+# api server certificate creation (etcd authentication)
 cd /root/certificates
 
 openssl genrsa -out api-etcd.key 2048
@@ -87,6 +87,30 @@ openssl x509 -req -in api-etcd.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out
 openssl genrsa -out service-account.key 2048
 openssl req -new -key service-account.key -subj "/CN=service-accounts" -out service-account.csr
 openssl x509 -req -in service-account.csr -CA ca.crt -CAkey ca.key -CAcreateserial  -out service-account.crt -days 100
+
+# Generate Configuration File for CSR Creation:
+cat <<EOF | sudo tee api.conf
+[req]
+req_extensions = v3_req
+distinguished_name = req_distinguished_name
+[req_distinguished_name]
+[ v3_req ]
+basicConstraints = CA:FALSE
+keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+subjectAltName = @alt_names
+[alt_names]
+DNS.1 = kubernetes
+DNS.2 = kubernetes.default
+DNS.3 = kubernetes.default.svc
+DNS.4 = kubernetes.default.svc.cluster.local
+IP.1 = 127.0.0.1
+IP.3 = 10.0.0.1
+EOF
+
+# Generate Certificates for API Server
+openssl genrsa -out kube-api.key 2048
+openssl req -new -key kube-api.key -subj "/CN=kube-apiserver" -out kube-api.csr -config api.conf
+openssl x509 -req -in kube-api.csr -CA ca.crt -CAkey ca.key -CAcreateserial  -out kube-api.crt -extensions v3_req -extfile api.conf -days 2000
 
 # integrate systemd with api server
 cat <<EOF | sudo tee /etc/systemd/system/kube-apiserver.service
@@ -104,7 +128,9 @@ ExecStart=/usr/local/bin/kube-apiserver \
 --service-account-key-file=/root/certificates/service-account.crt \
 --service-cluster-ip-range=10.0.0.0/24 \
 --service-account-signing-key-file=/root/certificates/service-account.key \
---service-account-issuer=https://127.0.0.1:6443 
+--service-account-issuer=https://127.0.0.1:6443
+--tls-cert-file=/root/certificates/kube-api.crt
+--tls-private-key-file=/root/certificates/kube-api.key
 
 [Install]
 WantedBy=multi-user.target
