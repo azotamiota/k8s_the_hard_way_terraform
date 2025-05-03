@@ -45,7 +45,8 @@ resource "aws_instance" "cks_ec2" {
 
 resource "aws_key_pair" "cks_ec2_key" {
   key_name   = "cks_ec2_key"
-  public_key = file("~/.ssh/cks_ec2_key.pub")
+  # public_key = file("~/.ssh/cks_ec2_key.pub") # MacBook private key
+  public_key = file("~/.ssh/socks5_proxy_key.pub") # Dell private key
 }
 
 output "instance_public_ip" {

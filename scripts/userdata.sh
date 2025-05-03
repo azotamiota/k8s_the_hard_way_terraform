@@ -112,6 +112,10 @@ openssl genrsa -out kube-api.key 2048
 openssl req -new -key kube-api.key -subj "/CN=kube-apiserver" -out kube-api.csr -config api.conf
 openssl x509 -req -in kube-api.csr -CA ca.crt -CAkey ca.key -CAcreateserial  -out kube-api.crt -extensions v3_req -extfile api.conf -days 2000
 
+# Generate Token auth file for static token file authentication
+TOKEN_PASSWORD=$(echo $RANDOM | md5sum | head -c 20)
+echo "$TOKEN_PASSWORD,dudung,01,admins" > /root/token.csv
+
 # integrate systemd with api server
 cat <<EOF | sudo tee /etc/systemd/system/kube-apiserver.service
 [Unit]
@@ -131,6 +135,7 @@ ExecStart=/usr/local/bin/kube-apiserver \
 --service-account-issuer=https://127.0.0.1:6443
 --tls-cert-file=/root/certificates/kube-api.crt
 --tls-private-key-file=/root/certificates/kube-api.key
+--token-auth-file=/root/token.csv
 
 [Install]
 WantedBy=multi-user.target
