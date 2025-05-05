@@ -10,7 +10,8 @@ This project demonstrates hands-on Kubernetes architecture knowledge by manually
 - Manually configured in user data:  
   - etcd server with TLS certificates  
   - systemd unit files for etcd and kube-apiserver  
-  - Kubernetes API server with service account certificates  
+  - Kubernetes API server with service account certificates
+  - Static token file authentication
 - Automated initial setup while preserving the "hard way" learning approach.  
 
 ## Technologies Used  

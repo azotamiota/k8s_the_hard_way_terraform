@@ -1,6 +1,6 @@
 #!/bin/bash
 
-apt-get update && apt-get -y install tcpdump net-tools
+apt-get update && apt-get -y install net-tools
 IP=$(ifconfig ens5 | awk '/inet / {print $2}')
 
 # etcd server config
@@ -11,15 +11,15 @@ tar -xzvf etcd-v3.5.18-linux-amd64.tar.gz
 cd /root/binaries/etcd-v3.5.18-linux-amd64/
 cp etcd etcdctl /usr/local/bin/
 
-# etcd certificates creation
 mkdir /root/certificates
 cd /root/certificates
 
+# create a Kubernetes certification authority certificate
 openssl genrsa -out ca.key 2048
 openssl req -new -key ca.key -subj "/CN=KUBERNETES-CA" -out ca.csr
 openssl x509 -req -in ca.csr -signkey ca.key -out ca.crt -days 1000
-openssl genrsa -out etcd.key 2048
 
+# create etcd certificate
 cat > etcd.cnf <<EOF
 [req]
 req_extensions = v3_req
@@ -34,12 +34,9 @@ IP.1 = ${IP}
 IP.2 = 127.0.0.1
 EOF
 
+openssl genrsa -out etcd.key 2048
 openssl req -new -key etcd.key -subj "/CN=etcd" -out etcd.csr -config etcd.cnf
 openssl x509 -req -in etcd.csr -CA ca.crt -CAkey ca.key -CAcreateserial  -out etcd.crt -extensions v3_req -extfile etcd.cnf -days 2000
-
-openssl genrsa -out dudung.key 2048
-openssl req -new -key dudung.key -subj "/CN=dudung" -out dudung.csr
-openssl x509 -req -in dudung.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out dudung.crt -extensions v3_req  -days 2000
 
 # integrate systemd with etcd & start running
 mkdir /var/lib/etcd
@@ -69,7 +66,7 @@ EOF
 systemctl start etcd
 systemctl enable etcd
 
-# kube-api server config
+# create a kube-api server
 cd /root/binaries
 wget https://dl.k8s.io/v1.32.1/kubernetes-server-linux-amd64.tar.gz
 tar -xzvf kubernetes-server-linux-amd64.tar.gz
@@ -88,7 +85,7 @@ openssl genrsa -out service-account.key 2048
 openssl req -new -key service-account.key -subj "/CN=service-accounts" -out service-account.csr
 openssl x509 -req -in service-account.csr -CA ca.crt -CAkey ca.key -CAcreateserial  -out service-account.crt -days 100
 
-# Generate Configuration File for CSR Creation:
+# generate configuration file for CSR creation:
 cat <<EOF | sudo tee api.conf
 [req]
 req_extensions = v3_req
@@ -112,7 +109,52 @@ openssl genrsa -out kube-api.key 2048
 openssl req -new -key kube-api.key -subj "/CN=kube-apiserver" -out kube-api.csr -config api.conf
 openssl x509 -req -in kube-api.csr -CA ca.crt -CAkey ca.key -CAcreateserial  -out kube-api.crt -extensions v3_req -extfile api.conf -days 2000
 
-# integrate systemd with api server
+# uncomment to generate a Token auth file for static token file authentication.
+# not recommended as per the CIS benchmark due to security concerns.
+# TOKEN_PASSWORD=$(echo $RANDOM | md5sum | head -c 20) OR
+# TOKEN_PASSWORD=$(head -c 20 /dev/urandom | base64) # with special characters included
+# echo "$TOKEN_PASSWORD,dudung,01,admins" > /root/token.csv
+
+# create an admin certificate for user "bob"
+openssl genrsa -out bob.key 2048
+openssl req -new -key bob.key -subj "/CN=bob/O=system:masters" -out bob.csr
+openssl x509 -req -in bob.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out bob.crt -days 1000
+
+# create a developer certificate for user "dudung"
+openssl genrsa -out dudung.key 2048
+openssl req -new -key dudung.key -subj "/CN=dudung/O=developers" -out dudung.csr
+openssl x509 -req -in dudung.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out dudung.crt -days 2000
+
+# create encryption config
+cd /var/lib/etcd
+ENCRYPTION_KEY=$(head -c 32 /dev/urandom | base64)
+cat > encryption-at-rest.yaml <<EOF
+kind: EncryptionConfig
+apiVersion: v1
+resources:
+  - resources:
+      - secrets
+    providers:
+      - aescbc:
+          keys:
+            - name: key1
+              secret: ${ENCRYPTION_KEY}
+      - identity: {}
+EOF
+
+# Copy configuration to appropriate path:
+mkdir /var/lib/kubernetes
+mv encryption-at-rest.yaml /var/lib/kubernetes
+
+# create audit policy file
+cat > logging.yaml <<EOF
+apiVersion: audit.k8s.io/v1
+kind: Policy
+rules:
+- level: Metadata
+EOF
+
+# integrate systemd with api server & start running
 cat <<EOF | sudo tee /etc/systemd/system/kube-apiserver.service
 [Unit]
 Description=Kubernetes API Server
@@ -131,9 +173,19 @@ ExecStart=/usr/local/bin/kube-apiserver \
 --service-account-issuer=https://127.0.0.1:6443
 --tls-cert-file=/root/certificates/kube-api.crt
 --tls-private-key-file=/root/certificates/kube-api.key
+--client-ca-file=/root/certificates/ca.crt
+--encryption-provider-config=/var/lib/kubernetes/encryption-at-rest.yaml
+--audit-policy-file=/root/certificates/logging.yaml
+--audit-log-path=/var/log/api-audit.log
+--audit-log-maxage=30
+--audit-log-maxbackup=10
+--audit-log-maxsize=100 
+
 
 [Install]
 WantedBy=multi-user.target
 EOF
+# add this flag if you generated a static token auth file (not recommended)
+# --token-auth-file=/root/token.csv
 
 systemctl start kube-apiserver
